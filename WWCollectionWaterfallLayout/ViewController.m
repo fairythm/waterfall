@@ -8,7 +8,7 @@
 
 #import "ViewController.h"
 #import "CollectionWaterfallLayout.h"
-
+#import "DataListObject.h"
 #define StatusBarHeight ([UIApplication sharedApplication].statusBarFrame.size.height)
 #define NavigationBarHeight (self.navigationController.navigationBar.frame.size.height)
 #define TabBarHeight (self.tabBarController.tabBar.frame.size.height)
@@ -57,16 +57,60 @@ static NSString *const kCollectionViewHeaderReusableID = @"kCollectionViewHeader
 - (void)setupDataList
 {
     
-
-    _dataList = [NSMutableArray array];
-    NSInteger dataCount = arc4random()%25+50;
-    for(NSInteger i=0; i<dataCount; i++){
-        NSInteger rowHeight = arc4random()%100+200;
-        [_dataList addObject:@(rowHeight)];
-    }
+    //解析JSON
+    NSInteger count = 20;//请求图片总数
+    NSURL * url = [NSURL URLWithString:[@"https://image.baidu.com/wisebrowse/data?tag1=摄影&tag2=全部&pn=0&rn=20" stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    NSURLRequest *request = [[NSURLRequest alloc]initWithURL:url];
+    [NSURLConnection sendAsynchronousRequest:request
+                                       queue:[NSOperationQueue mainQueue]
+                           completionHandler:^(NSURLResponse * _Nullable response,
+                                               NSData * _Nullable data,
+                                               NSError * _Nullable connectionError) {
+                               NSDictionary * dict = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:nil];
+                               /*NSMutableString * s = dict[@"imgs"];
+                               [s replaceCharactersInRange:NSMakeRange(0, 1) withString:@"["];
+                               [s replaceCharactersInRange:NSMakeRange(s.length - 1, 1) withString:@"]"];*/
+                               //NSLog(@"%@",dict);
+                               //----------处理图片到datalist中
+                               _dataList = [NSMutableArray array];
+                            
+                               //数据源的个数；
+                               NSInteger dataCount = count;
+                               //逐一向datalist中添加对象
+                               for(NSInteger i=0; i<dataCount; i++){
+                                   //向网络请求一张图片
+                                  
+                                   DataListObject * obj =
+                                   [DataListObject
+                                    buildWithtitle:dict[@"imgs"][i][@"title"]
+                                    Fromurl:dict[@"imgs"][i][@"fromurl"]
+                                    Content_sign:dict[@"imgs"][i][@"content_sign"]
+                                    Obj_url:dict[@"imgs"][i][@"obj_url"]
+                                    Small_url:dict[@"imgs"][i][@"small_url"]
+                                    Mid_url:dict[@"imgs"][i][@"mid_url"]
+                                    AlbumNum:[dict[@"imgs"][i][@"albumNum"] integerValue]
+                                    DataId:[dict[@"imgs"][i][@"dataId"] integerValue]
+                                    Image_width:[dict[@"imgs"][i][@"image_width"] integerValue]
+                                    Image_height:[dict[@"imgs"][i][@"image_height"] integerValue]
+                                    Mid_height:[dict[@"imgs"][i][@"mid_height"]integerValue]
+                                    Mid_width:[dict[@"imgs"][i][@"midwidth"]integerValue]
+                                    Set_id:[dict[@"imgs"][i][@"set_id"]integerValue]
+                                    Small_height:[dict[@"imgs"][i][@"small_height"]integerValue]
+                                    Small_width:[dict[@"imgs"][i][@"small_width"]integerValue]
+                                    ];
+                                   //图片高度设置
+                                   
+                                   //将一个图片的高度值添加到数据源中；
+                                   [_dataList addObject:obj];
+                               }
+                               //-----------
+                           }];
+    //
+    
+    
     
 }
-
+//设置右上角按钮
 - (void)setupRightButton
 {
     
@@ -83,19 +127,27 @@ static NSString *const kCollectionViewHeaderReusableID = @"kCollectionViewHeader
     [self.collectionView reloadData];
     
 }
+
 #pragma mark - getter
 - (UICollectionView *)collectionView
 {
     if(!_collectionView){
+        //初始化
         _waterfallLayout = [[CollectionWaterfallLayout alloc] init];
+        //设置代理
         _waterfallLayout.delegate = self;
+        //设置每一行列数
         _waterfallLayout.columns = 2;
+        //设置列边距
         _waterfallLayout.columnSpacing = 10;
+        //设置距离上下左右的间隙（边距）
         _waterfallLayout.insets = UIEdgeInsetsMake(10, 10, 10, 10);
         
         _collectionView = [[UICollectionView alloc] initWithFrame:CGRectMake(0, 0, ScreenWidth, ScreenHeight-StatusBarHeight-NavigationBarHeight) collectionViewLayout:_waterfallLayout];
+        //设置collectionView的代理与数据源
         _collectionView.delegate = self;
         _collectionView.dataSource = self;
+        //设置collectionView的背景颜色
         _collectionView.backgroundColor = [UIColor clearColor];
         
         [_collectionView registerClass:[UICollectionViewCell class] forCellWithReuseIdentifier:kCollectionViewItemReusableID];
@@ -107,29 +159,42 @@ static NSString *const kCollectionViewHeaderReusableID = @"kCollectionViewHeader
     return _collectionView;
 }
 
-
+//数据源
 #pragma mark - UICollectionViewDataSource
 - (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section
 {
+    //
     if(section == 0){
+        //返回数据源中数据的总条数
         return _dataList.count;
     }
     return 0;
 }
 
+//设置背景颜色
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath
 {
+    //NSLog(@"当前处理的cell是第%d个",indexPath.item);
     UICollectionViewCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:kCollectionViewItemReusableID forIndexPath:indexPath];
     
     if(!cell){
         cell = [[UICollectionViewCell alloc] init];
     }
     
+    //以下为生成虚拟图片颜色的代码
     CGFloat red = arc4random()%256/255.0;
     CGFloat green = arc4random()%256/255.0;
     CGFloat blue = arc4random()%256/255.0;
     
-    cell.backgroundColor = [UIColor colorWithRed:red green:green blue:blue alpha:1];
+    
+    NSURL * imageURL = [NSURL URLWithString:[_dataList[indexPath.item] small_url]];
+    UIImage * img = [UIImage imageWithData:[NSData dataWithContentsOfURL:imageURL]];
+    NSLog(@"当前处理的cell是第%d个,试图访问",indexPath.item);
+    UIImageView *imageV=[[UIImageView alloc]init];
+    imageV.image = img ;
+    
+    //cell.backgroundColor = [UIColor colorWithRed:red green:green blue:blue alpha:1];
+    cell.backgroundView = imageV;
     
     return cell;
     
@@ -139,7 +204,7 @@ static NSString *const kCollectionViewHeaderReusableID = @"kCollectionViewHeader
 {
     if([kind isEqualToString:kSupplementaryViewKindHeader]){
         UICollectionReusableView *headerView = [collectionView dequeueReusableSupplementaryViewOfKind:kind withReuseIdentifier:kCollectionViewHeaderReusableID forIndexPath:indexPath];
-        
+        //返回顶部栏图片
         return headerView;
     }
     return nil;
@@ -148,15 +213,21 @@ static NSString *const kCollectionViewHeaderReusableID = @"kCollectionViewHeader
 #pragma mark - CollectionWaterfallLayoutProtocol
 - (CGFloat)collectionViewLayout:(CollectionWaterfallLayout *)layout heightForItemAtIndexPath:(NSIndexPath *)indexPath
 {
+    //计算行数
     NSInteger row = indexPath.row;
-    CGFloat cellHeight = [_dataList[row] floatValue];
+    //获取第row行的单元高度
+    
+    CGFloat cellHeight = [_dataList[row] small_height];
     return cellHeight;
 }
 
 - (CGFloat)collectionViewLayout:(CollectionWaterfallLayout *)layout heightForSupplementaryViewAtIndexPath:(NSIndexPath *)indexPath
 {
     if(indexPath.section == 0 && indexPath.row == 0){
-        return 300;
+        //返回300时，预留顶部栏图片高度
+        //return 300;
+        //返回0时，屏蔽顶部栏图片
+        return 0;
     }
     return 0;
 }
